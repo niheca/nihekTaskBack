@@ -15,9 +15,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,51 +48,36 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public Mono<TaskPaginatedResponseDTO> getTasks(int pageNumber, int pageSize) {
+    public Mono<TaskPaginatedResponseDTO> getTasks(Long limit, Long offset) {
 
-        int offset = (pageNumber - 1) * pageSize;
 
-        Mono<Long> totalCount = this.taskRepository.count();
+        Mono<Long> count = this.taskRepository.count();
 
-        Flux<TaskResponseDTO> tasksResponse = this.taskRepository.findAll()
+        Mono<Long> pages = count.flatMap( totalCount -> Mono.just( (long) Math.ceil((double) totalCount / limit)));
+
+        Flux<TaskResponseDTO> tasks = this.taskRepository.findAll()
+                .sort((dto1, dto2) -> dto2.getId().compareTo(dto1.getId()))
                 .skip(offset)
-                .take(pageSize)
-                .flatMap(this::convertEntityToDto);
+                .take(limit)
+                .flatMap(taskEntity -> convertEntityToDto(taskEntity));
 
-        return Mono.zip(tasksResponse.collectList(), totalCount)
-                .flatMap(tuple -> {
-                    List<TaskResponseDTO> tasks = tuple.getT1();
-                    Long total = tuple.getT2();
+        return Mono.zip(count, pages , tasks.collectList()).flatMap(tuple -> {
+            return Mono.just(TaskPaginatedResponseDTO.builder()
+                    .count(tuple.getT1())
+                    .pages(tuple.getT2())
+                    .tasks(tuple.getT3())
+                    .build());
+        });
 
-                    int totalPages = (int) Math.ceil((double) total / pageSize);
+        //Para enseñar a eva diferencia entre map y flatMap
+       /* return Mono.zip(count, pages , tasks.collectList()).map(tuple -> {
+            return TaskPaginatedResponseDTO.builder()
+                    .count(tuple.getT1())
+                    .pages(tuple.getT2())
+                    .tasks(tuple.getT3())
+                    .build();
+        });*/
 
-                    if(pageNumber > totalPages){
-                        String error = "Number of pages exceeds total pages, the total number of pages is " + totalPages;
-                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, error));
-                    }
-
-                    if(pageSize > total){
-                        String error = "Number of task exceeds total task in bd , the total number of tasks is " + total;
-                        return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, error));
-                    }
-
-                    return Mono.just(TaskPaginatedResponseDTO.builder()
-                            .count(pageSize)
-                            .totalCount(total)
-                            .page(pageNumber)
-                            .totalPages(totalPages)
-                            .tasks(tasks)
-                            .build());
-                });
-
-        //Forma que habia pensado (Mal porque rompe reactividad con .block)
-        /*return Mono.just(TaskPaginatedResponseDTO.builder()
-                .count(pageSize)
-                .totalCount(totalCount.block())
-                .page(pageNumber)
-                .totalPages( (int) Math.ceil((double) totalCount.block() / pageSize))
-                .task(tasksResponse.collectList().block())
-                .build());*/
 
     }
 

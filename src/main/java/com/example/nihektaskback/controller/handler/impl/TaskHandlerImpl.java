@@ -61,10 +61,10 @@ public class TaskHandlerImpl implements TaskHandler {
     @Override
     public Mono<ServerResponse> getTask(ServerRequest request) {
 
-        int pageNumber = Integer.parseInt(request.queryParam("page").orElse("1"));
-        int pageSize = Integer.parseInt(request.queryParam("size").orElse("5"));
+        Long limit = Long.valueOf(request.queryParam("limit").orElse("5"));
+        Long offset = Long.valueOf(request.queryParam("offset").orElse("0"));
 
-        return this.taskService.getTasks(pageNumber,pageSize)
+        return this.taskService.getTasks(limit,offset)
                 .flatMap((tasks) -> {
 
                     log.info("Tasks were successfully retrieved:");

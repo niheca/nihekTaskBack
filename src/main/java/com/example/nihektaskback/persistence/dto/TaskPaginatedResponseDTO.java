@@ -11,10 +11,8 @@ import java.util.List;
 @Builder
 public class TaskPaginatedResponseDTO {
 
-    private int count;
-    private Long totalCount;
-    private int page;
-    private int totalPages;
+    private Long count;
+    private Long pages;
     private List<TaskResponseDTO> tasks;
 
 }

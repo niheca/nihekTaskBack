@@ -12,7 +12,7 @@ public interface TaskService {
 
     Mono<TaskResponseDTO> createTask(TaskRequestDTO taskRequest);
 
-    Mono<TaskPaginatedResponseDTO> getTasks(int pageNumber, int pageSize);
+    Mono<TaskPaginatedResponseDTO> getTasks(Long pageNumber, Long pageSize);
 
     Mono<TaskResponseDTO> getTaskByID(String id);
 
